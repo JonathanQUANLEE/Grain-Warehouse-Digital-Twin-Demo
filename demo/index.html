@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>粮库数字孪生驾驶舱</title>
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="dns-prefetch" href="//demo.bjblackhole.com">
+  <link rel="preconnect" href="https://demo.bjblackhole.com" crossorigin>
+</head>
+<body>
+
+  <!-- ═══ FULL-SCREEN 3D ENGINE BACKGROUND ═══ -->
+  <div class="engine-bg" id="scene">
+    <canvas id="bhCanvas" tabindex="1"></canvas>
+    <div class="weather-overlay" id="weatherOverlay"></div>
+  </div>
+
+  <!-- ═══ HUD OVERLAY SYSTEM ═══ -->
+  <div class="hud" id="app">
+
+    <!-- ── TOP BAR ── -->
+    <header class="hud-topbar">
+      <div class="hud-brand">
+        <div class="brand-logo">LK</div>
+        <div>
+          <div class="brand-name">粮库数字孪生驾驶舱</div>
+          <div class="brand-sub">智能监控 · 实时管理</div>
+        </div>
+      </div>
+      <nav class="hud-nav" id="menuTree">
+        <a class="hud-tab active" data-main="dashboard" href="javascript:void(0)">驾驶舱总览</a>
+        <a class="hud-tab" data-main="storage" href="javascript:void(0)">仓储监测</a>
+        <a class="hud-tab" data-main="device" href="javascript:void(0)">设备运维</a>
+        <a class="hud-tab" data-main="security" href="javascript:void(0)">安防联动</a>
+        <a class="hud-tab" data-main="api" href="javascript:void(0)">接口联调</a>
+      </nav>
+      <div class="hud-meta">
+        <span class="hud-clock" id="hudClock"></span>
+        <span class="meta-chip" id="roamStatus">静态视角</span>
+        <span class="meta-chip">管理员</span>
+      </div>
+    </header>
+
+    <!-- ── LEFT HUD PANEL ── -->
+    <aside class="hud-left" id="hudLeft">
+      <div class="hud-panel" data-views="dashboard device" data-scene="grain" id="kpiPanel">
+        <div class="hud-panel-title">核心指标</div>
+        <div class="kpi-stack">
+          <div class="kpi">
+            <span class="kpi-icon">📦</span>
+            <span class="kpi-label">总库存量</span>
+            <span class="kpi-value" id="kpiStock">-</span>
+          </div>
+          <div class="kpi">
+            <span class="kpi-icon">📡</span>
+            <span class="kpi-label">在线设备</span>
+            <span class="kpi-value" id="kpiOnline">-</span>
+          </div>
+          <div class="kpi">
+            <span class="kpi-icon">⚠️</span>
+            <span class="kpi-label">异常告警</span>
+            <span class="kpi-value alert" id="kpiAlerts">-</span>
+          </div>
+          <div class="kpi">
+            <span class="kpi-icon">📋</span>
+            <span class="kpi-label">今日作业</span>
+            <span class="kpi-value" id="kpiTodayOps">-</span>
+          </div>
+          <div class="kpi">
+            <span class="kpi-icon">🌡️</span>
+            <span class="kpi-label">温湿度</span>
+            <span class="kpi-value" id="kpiWeather">-</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hud-panel" data-views="dashboard" data-scene="grain">
+        <div class="hud-panel-title">粮情趋势</div>
+        <canvas id="tempChart" width="300" height="130"></canvas>
+      </div>
+
+      <div class="hud-panel" data-views="dashboard device" data-scene="device">
+        <div class="hud-panel-title">设备运行状态</div>
+        <canvas id="deviceChart" width="300" height="110"></canvas>
+      </div>
+
+      <div class="hud-panel hud-collapsible" data-views="dashboard" data-scene="operation">
+        <div class="hud-panel-title hud-toggle" data-target="modelPanelBody">
+          加载模型列表 <span class="toggle-arrow">▾</span>
+        </div>
+        <div class="hud-panel-body" id="modelPanelBody">
+          <div class="model-list" id="modelList"></div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── RIGHT HUD PANEL ── -->
+    <aside class="hud-right" id="hudRight">
+      <div class="hud-panel" data-views="dashboard storage" data-scene="grain" id="warehouseDetail">
+        <div class="hud-panel-title">仓房详情</div>
+        <div class="detail-grid">
+          <div>仓房</div><div id="dName">-</div>
+          <div>粮温(°C)</div><div id="dTemp">-</div>
+          <div>湿度(%)</div><div id="dHum">-</div>
+          <div>气体浓度</div><div id="dGas">-</div>
+          <div>粮堆高度(m)</div><div id="dHeight">-</div>
+          <div>风机状态</div><div id="dFan">-</div>
+          <div>空调状态</div><div id="dAir">-</div>
+        </div>
+      </div>
+
+      <div class="hud-panel alert-breathing" data-views="dashboard security" data-scene="security">
+        <div class="hud-panel-title">安防事件与智能预警</div>
+        <div id="alertList" class="alert-list"></div>
+      </div>
+
+      <div class="hud-panel hud-collapsible" data-views="dashboard security" data-scene="security">
+        <div class="hud-panel-title hud-toggle" data-target="aiPanelBody">
+          AI安防联动 <span class="toggle-arrow">▾</span>
+        </div>
+        <div class="hud-panel-body" id="aiPanelBody">
+          <div class="hud-btn-row">
+            <button id="simulateAiBtn">事件模拟</button>
+            <button id="clearAiBtn">清空</button>
+          </div>
+          <div class="hud-btn-row">
+            <input id="aiApiInput" placeholder="AI接口地址" />
+            <button id="startAiApiBtn">轮询</button>
+            <button id="stopAiApiBtn">停止</button>
+          </div>
+          <div id="aiEventList" class="alert-list"></div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── BOTTOM HUD BAR ── -->
+    <div class="hud-bottom" id="hudBottom">
+      <div class="hud-bottom-top">
+        <div class="hud-bottom-controls" id="toolbarPanel">
+          <select id="quickLocateSelect"><option value="">快速定位仓房</option></select>
+          <select id="weatherSelect">
+            <option value="sunny">☀ 晴</option>
+            <option value="rain">🌧 雨</option>
+            <option value="snow">❄ 雪</option>
+            <option value="fog">🌫 雾</option>
+          </select>
+          <button id="firstPersonBtn">第一人称</button>
+          <button id="autoRoamBtn">自动巡检</button>
+          <button id="cutawayBtn">仓顶穿透</button>
+        </div>
+        <div class="strip-label">全仓储运行状态 <small>(点击快速定位)</small></div>
+      </div>
+      <div class="warehouse-map" id="warehouseMap"></div>
+    </div>
+
+    <!-- ── SCENE STATUS OVERLAYS ── -->
+    <div class="scene-alert-toast" id="sceneAlertToast"></div>
+    <div class="engine-status" id="engineStatus">引擎状态：初始化中</div>
+
+    <!-- ── EXPANDED PANEL (for API/integration tools) ── -->
+    <div class="hud-expanded-overlay" id="expandedOverlay">
+      <div class="hud-expanded-panel" id="dashboardPanel">
+        <div class="hud-expanded-header">
+          <h2 id="expandedTitle">接口联调与集成工具</h2>
+          <button class="hud-close-btn" id="closeExpandedBtn">✕ 关闭</button>
+        </div>
+        <div class="hud-expanded-grid">
+          <!-- keep scenePanel ID for compatibility -->
+          <div id="scenePanel" style="display:none"></div>
+
+          <div class="chart-card">
+            <h3>子系统数据集成联动</h3>
+            <div class="api-form">
+              <input id="subsystemApiInput" placeholder="子系统接口地址（可选）" />
+              <select id="subsystemTypeSelect">
+                <option value="inout">出入库系统</option>
+                <option value="storage">仓储作业系统</option>
+                <option value="security">安防系统</option>
+                <option value="mis">业务管理系统</option>
+              </select>
+              <button id="requestSubsystemBtn">拉取子系统接口</button>
+            </div>
+            <div id="subsystemList" class="subsystem-list"></div>
+            <pre id="subsystemApiPreview" class="api-preview"></pre>
+          </div>
+
+          <div class="chart-card">
+            <h3>三维视频融合</h3>
+            <div class="api-form">
+              <input id="streamUrlInput" placeholder="实时流地址（http/flv/mp4）" />
+              <button id="startStreamBtn">播放</button>
+              <button id="stopStreamBtn">停止</button>
+            </div>
+            <video id="videoFusion" controls muted autoplay loop>
+              <source src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" type="video/mp4">
+            </video>
+          </div>
+
+          <div class="chart-card">
+            <h3>业务台账穿透</h3>
+            <div class="api-form">
+              <input id="ledgerApiInput" placeholder="台账接口地址（可选）" />
+              <button id="loadLedgerBtn">加载当前仓房台账</button>
+            </div>
+            <div id="ledgerPanel" class="subsystem-list"></div>
+          </div>
+
+          <div class="chart-card card-wide">
+            <h3>服务端接口联调</h3>
+            <div class="api-form">
+              <input id="apiBaseUrl" placeholder="服务端地址" />
+              <select id="authMode">
+                <option value="token">Token认证</option>
+                <option value="client">Client认证</option>
+              </select>
+              <input id="apiToken" placeholder="Token" />
+              <input id="apiClientId" placeholder="ClientId" />
+              <input id="apiSecretKey" placeholder="SecretKey" />
+              <input id="apiUserId" placeholder="UserId" />
+              <button id="buildHeaderBtn">生成请求头</button>
+              <button id="requestProjectBtn">项目列表</button>
+              <button id="requestTopDemoBtn">官方TopDemo</button>
+              <button id="requestTokenBtn">请求Token</button>
+            </div>
+            <div class="api-form" style="margin-top:10px">
+              <select id="projectSelect"><option value="">项目列表（未加载）</option></select>
+              <button id="loadProjectSceneBtn">加载所选项目</button>
+            </div>
+            <textarea id="tokenBodyInput" class="api-textarea" rows="3" placeholder='Token请求体JSON'></textarea>
+            <pre id="headerPreview" class="api-preview"></pre>
+            <pre id="curlPreview" class="api-preview"></pre>
+            <pre id="apiResponsePreview" class="api-preview"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- hidden subtitle for script.js compat -->
+    <div id="pageSubtitle" style="display:none"></div>
+  </div>
+
+  <script>
+    (() => {
+      const localSdkDir = "../sdk";
+      const remoteSdkDir = "https://demo.bjblackhole.com/BlackHole3.0/sdk";
+      const officialCommonUrl = "https://engine3.bjblackhole.com/blackHole3D/basic";
+      const params = new URLSearchParams(window.location.search);
+      const readStoredValue = key => {
+        try {
+          return window.localStorage.getItem(key);
+        } catch (_error) {
+          return "";
+        }
+      };
+      const legacyEngineData = (params.get("engineData") || readStoredValue("grain_demo_engine_data") || "").toLowerCase();
+      const dataSource = (params.get("dataSource") || legacyEngineData || readStoredValue("grain_demo_data_source") || "official").toLowerCase();
+      const preferOfficialDataSet = dataSource === "official";
+      const sdkBase = (params.get("sdkBase") || readStoredValue("grain_demo_sdk_base") || remoteSdkDir).trim() || remoteSdkDir;
+      const sdkSource = /^https?:\/\//i.test(sdkBase) ? "remote" : "local";
+      const preloadUrls = [
+        `${sdkBase}/RealBIMWeb.wasm`,
+        `${sdkBase}/assets.bin`,
+        `${sdkBase}/assets1.bin`
+      ];
+      preloadUrls.forEach(href => {
+        const link = document.createElement("link");
+        link.rel = "preload";
+        link.as = "fetch";
+        link.href = href;
+        link.crossOrigin = "anonymous";
+        document.head.appendChild(link);
+      });
+      window.__BH_ENGINE_BOOT__ = {
+        sdkDir: sdkBase,
+        sdkSource,
+        commonUrl: officialCommonUrl,
+        localDataSetPath: "../models",
+        platformDataSetConfigUrl: "../config/blackhole_complete_params.sample.json",
+        preferOfficialDataSet,
+        requestedDataSource: dataSource,
+        fallbackDataSet: {
+          dataSetId: "res_qxsy",
+          resourcesAddress: "https://demo.bjblackhole.com/default.aspx?dir=url_res03&path=res_qxsy",
+          useTransInfo: false
+        }
+      };
+      const scripts = [
+        `${sdkBase}/RealBIMWeb.js`,
+        `${sdkBase}/BlackHole3D.js`,
+        `${sdkBase}/RealBIMWeb.preload.js`,
+        `${sdkBase}/mpegts.js`,
+        "./script.js"
+      ];
+      const loadScript = src => new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = src;
+        script.async = false;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.body.appendChild(script);
+      });
+      Promise.all(scripts.map(loadScript)).catch(error => {
+        const statusNode = document.getElementById("engineStatus");
+        if (statusNode) {
+          const failedSrc = error?.target?.src || "未知资源";
+          statusNode.textContent = `引擎状态：SDK资源加载失败（${failedSrc}）`;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
