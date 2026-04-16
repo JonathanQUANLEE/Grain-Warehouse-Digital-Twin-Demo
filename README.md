@@ -280,4 +280,3 @@ http://localhost:8080/demo/?dataSource=official
 - 本地模型资源
 - 聊天记录和临时过程文件
 
-因此，这个仓库是一个适合直接上传 GitHub 的精简公开版。如果你后续要做正式展示，建议再补充项目截图、`LICENSE` 和更详细的业务场景说明。
